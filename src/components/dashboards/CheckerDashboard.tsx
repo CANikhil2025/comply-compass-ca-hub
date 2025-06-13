@@ -2,127 +2,212 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Eye, CheckCircle, XCircle } from 'lucide-react';
+import { 
+  FileCheck, 
+  Clock, 
+  AlertCircle,
+  CheckCircle,
+  MessageSquare,
+  Eye
+} from 'lucide-react';
 
 export const CheckerDashboard = () => {
-  // Mock data
-  const pendingReviews = [
-    { 
-      id: '1', 
-      title: 'GSTR-3B Filing', 
-      client: 'ABC Corp', 
-      maker: 'John Doe',
-      submittedDate: '2024-01-18', 
-      dueDate: '2024-01-20',
-      category: 'GST'
+  const tasksForReview = [
+    {
+      id: 1,
+      client: "ABC Corp",
+      task: "GSTR-3B Filing",
+      maker: "John Doe",
+      submittedAt: "2 hours ago",
+      priority: "High"
     },
-    { 
-      id: '2', 
-      title: 'TDS Return Q3', 
-      client: 'XYZ Ltd', 
-      maker: 'Jane Smith',
-      submittedDate: '2024-01-17', 
-      dueDate: '2024-01-25',
-      category: 'TDS'
+    {
+      id: 2,
+      client: "XYZ Ltd",
+      task: "TDS Return Q3",
+      maker: "Jane Smith",
+      submittedAt: "4 hours ago",
+      priority: "Medium"
     },
+    {
+      id: 3,
+      client: "DEF Corp",
+      task: "ROC Annual Filing",
+      maker: "Mike Johnson",
+      submittedAt: "1 day ago",
+      priority: "Low"
+    }
   ];
-
-  const stats = {
-    pendingReviews: 5,
-    approvedToday: 8,
-    totalReviewsThisWeek: 23,
-    averageReviewTime: 1.2
-  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Checker Dashboard</h1>
-        <p className="text-gray-600">Tasks awaiting your review and approval</p>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900">Review Dashboard</h1>
+        <Badge variant="secondary" className="px-3 py-1">
+          Checker
+        </Badge>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Reviews</CardTitle>
-            <FileText className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{stats.pendingReviews}</div>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending Review</p>
+                <p className="text-3xl font-bold text-gray-900">8</p>
+              </div>
+              <FileCheck className="h-8 w-8 text-orange-600" />
+            </div>
           </CardContent>
         </Card>
-
+        
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved Today</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">{stats.approvedToday}</div>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Approved Today</p>
+                <p className="text-3xl font-bold text-gray-900">12</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
           </CardContent>
         </Card>
-
+        
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reviews This Week</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalReviewsThisWeek}</div>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Change Requests</p>
+                <p className="text-3xl font-bold text-gray-900">3</p>
+              </div>
+              <AlertCircle className="h-8 w-8 text-red-600" />
+            </div>
           </CardContent>
         </Card>
-
+        
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Review Time</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.averageReviewTime}h</div>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Avg Review Time</p>
+                <p className="text-3xl font-bold text-gray-900">2.5h</p>
+              </div>
+              <Clock className="h-8 w-8 text-blue-600" />
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Pending Reviews */}
+      {/* Tasks Awaiting Review */}
       <Card>
         <CardHeader>
-          <CardTitle>Pending Reviews</CardTitle>
-          <CardDescription>Tasks submitted for your review and approval</CardDescription>
+          <CardTitle>Tasks Awaiting Review</CardTitle>
+          <CardDescription>Submissions from makers ready for your review</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {pendingReviews.map((task) => (
-              <div key={task.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-2">
-                  <div className="font-medium">{task.title}</div>
-                  <div className="text-sm text-gray-600">{task.client} • {task.category}</div>
-                  <div className="flex items-center space-x-4 text-sm text-gray-500">
-                    <span>Submitted by: {task.maker}</span>
-                    <span>On: {task.submittedDate}</span>
-                    <span>Due: {task.dueDate}</span>
+            {tasksForReview.map((task) => (
+              <div key={task.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{task.task}</h3>
+                    <p className="text-sm text-gray-600">{task.client}</p>
+                    <p className="text-xs text-gray-500">Submitted by: {task.maker}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge 
+                      variant={task.priority === 'High' ? 'destructive' : task.priority === 'Medium' ? 'default' : 'secondary'}
+                    >
+                      {task.priority}
+                    </Badge>
+                    <Badge variant="outline">Ready for Review</Badge>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="default">Ready for Review</Badge>
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4 mr-1" />
-                    Review
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-green-600">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Approve
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-red-600">
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
+                
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-500">Submitted: {task.submittedAt}</p>
+                  <div className="flex space-x-2">
+                    <Button size="sm" variant="outline">
+                      <Eye className="h-4 w-4 mr-1" />
+                      Preview
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      <MessageSquare className="h-4 w-4 mr-1" />
+                      Comment
+                    </Button>
+                    <Button size="sm" variant="destructive">
+                      Request Changes
+                    </Button>
+                    <Button size="sm">
+                      Approve
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {/* Recent Reviews */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Reviews</CardTitle>
+            <CardDescription>Your recently completed reviews</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[
+                { task: "PQR Inc - Income Tax", action: "Approved", time: "1 hour ago" },
+                { task: "MNO Corp - GST Return", action: "Changes Requested", time: "3 hours ago" },
+                { task: "RST Ltd - TDS Filing", action: "Approved", time: "5 hours ago" }
+              ].map((review, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">{review.task}</p>
+                    <p className="text-sm text-gray-500">{review.time}</p>
+                  </div>
+                  <Badge 
+                    variant={review.action === 'Approved' ? 'default' : 'destructive'}
+                    className="text-xs"
+                  >
+                    {review.action}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Review Quality Metrics</CardTitle>
+            <CardDescription>Your review performance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Accuracy Rate</span>
+                <span className="font-bold text-green-600">98.5%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Avg Review Time</span>
+                <span className="font-bold">2.3 hours</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Reviews This Month</span>
+                <span className="font-bold">127</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Change Request Rate</span>
+                <span className="font-bold text-orange-600">12%</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

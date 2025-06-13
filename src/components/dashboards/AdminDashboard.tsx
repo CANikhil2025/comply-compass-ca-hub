@@ -1,132 +1,163 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, FileText, AlertTriangle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { 
+  Users, 
+  FileText, 
+  Clock, 
+  AlertTriangle,
+  TrendingUp,
+  CheckCircle
+} from 'lucide-react';
 
 export const AdminDashboard = () => {
-  // Mock data - in real app, this would come from API
-  const stats = {
-    totalClients: 45,
-    activeTasks: 128,
-    overdueTasks: 8,
-    completedThisMonth: 89,
-    totalUsers: 12,
-    averageCompletionTime: 2.3
-  };
-
-  const recentTasks = [
-    { id: 1, title: 'GSTR-3B Filing', client: 'ABC Corp', dueDate: '2024-01-15', status: 'overdue', assignedTo: 'John Doe' },
-    { id: 2, title: 'TDS Return', client: 'XYZ Ltd', dueDate: '2024-01-18', status: 'in_progress', assignedTo: 'Jane Smith' },
-    { id: 3, title: 'Income Tax Filing', client: 'PQR Inc', dueDate: '2024-01-20', status: 'pending', assignedTo: 'Mike Johnson' },
-  ];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'overdue': return 'destructive';
-      case 'in_progress': return 'default';
-      case 'pending': return 'secondary';
-      default: return 'default';
+  const stats = [
+    {
+      title: "Active Clients",
+      value: "24",
+      icon: Users,
+      color: "text-blue-600",
+      bgColor: "bg-blue-100"
+    },
+    {
+      title: "Tasks Due Today",
+      value: "8",
+      icon: Clock,
+      color: "text-orange-600",
+      bgColor: "bg-orange-100"
+    },
+    {
+      title: "Overdue Tasks",
+      value: "3",
+      icon: AlertTriangle,
+      color: "text-red-600",
+      bgColor: "bg-red-100"
+    },
+    {
+      title: "Completed This Month",
+      value: "156",
+      icon: CheckCircle,
+      color: "text-green-600",
+      bgColor: "bg-green-100"
     }
-  };
+  ];
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600">Overview of compliance management system</p>
+        <Badge variant="secondary" className="px-3 py-1">
+          Administrator
+        </Badge>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <Card key={index}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                </div>
+                <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Tasks */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileText className="h-5 w-5" />
+              <span>Recent Tasks</span>
+            </CardTitle>
+            <CardDescription>Latest task activities</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalClients}</div>
-            <p className="text-xs text-muted-foreground">+2 from last month</p>
+            <div className="space-y-4">
+              {[
+                { client: "ABC Corp", task: "GSTR-3B Filing", status: "In Progress", assignee: "John Doe" },
+                { client: "XYZ Ltd", task: "TDS Return", status: "Ready for Review", assignee: "Jane Smith" },
+                { client: "PQR Inc", task: "ROC Filing", status: "Overdue", assignee: "Mike Johnson" }
+              ].map((task, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">{task.client}</p>
+                    <p className="text-sm text-gray-600">{task.task}</p>
+                    <p className="text-xs text-gray-500">Assigned to: {task.assignee}</p>
+                  </div>
+                  <Badge 
+                    variant={task.status === 'Overdue' ? 'destructive' : 'secondary'}
+                    className="text-xs"
+                  >
+                    {task.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
+        {/* Performance Metrics */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <TrendingUp className="h-5 w-5" />
+              <span>Performance Metrics</span>
+            </CardTitle>
+            <CardDescription>Team performance overview</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.activeTasks}</div>
-            <p className="text-xs text-muted-foreground">Across all clients</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">{stats.overdueTasks}</div>
-            <p className="text-xs text-muted-foreground">Requires immediate attention</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed This Month</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">{stats.completedThisMonth}</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">Makers and Checkers</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Completion Time</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.averageCompletionTime} days</div>
-            <p className="text-xs text-muted-foreground">-0.5 days from last month</p>
+            <div className="space-y-4">
+              {[
+                { name: "John Doe (Maker)", completed: 45, hours: 120, efficiency: "95%" },
+                { name: "Jane Smith (Checker)", completed: 38, hours: 95, efficiency: "92%" },
+                { name: "Mike Johnson (Maker)", completed: 42, hours: 115, efficiency: "88%" }
+              ].map((person, index) => (
+                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="font-medium text-gray-900">{person.name}</p>
+                    <Badge variant="outline">{person.efficiency}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                    <div>Tasks: {person.completed}</div>
+                    <div>Hours: {person.hours}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Tasks */}
+      {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Tasks</CardTitle>
-          <CardDescription>Latest task updates across all clients</CardDescription>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common administrative tasks</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {recentTasks.map((task) => (
-              <div key={task.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-1">
-                  <div className="font-medium">{task.title}</div>
-                  <div className="text-sm text-gray-600">{task.client}</div>
-                  <div className="text-sm text-gray-500">Assigned to: {task.assignedTo}</div>
-                </div>
-                <div className="text-right space-y-2">
-                  <div className="text-sm">Due: {task.dueDate}</div>
-                  <Badge variant={getStatusColor(task.status)}>
-                    {task.status.replace('_', ' ')}
-                  </Badge>
-                </div>
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              "Add New Client",
+              "Create Task",
+              "View Reports",
+              "Manage Users"
+            ].map((action, index) => (
+              <button
+                key={index}
+                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+              >
+                <p className="font-medium text-gray-900">{action}</p>
+              </button>
             ))}
           </div>
         </CardContent>
