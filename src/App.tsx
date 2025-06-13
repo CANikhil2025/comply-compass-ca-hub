@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Clients from "./pages/Clients";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,7 +36,7 @@ const App = () => (
               path="/clients" 
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
-                  <Dashboard />
+                  <Clients />
                 </ProtectedRoute>
               } 
             />
