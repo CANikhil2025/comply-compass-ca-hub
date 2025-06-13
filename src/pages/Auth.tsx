@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
@@ -7,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function Auth() {
   const { user, signIn, signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'maker' | 'checker' | 'admin'>('maker');
 
   // Redirect if already authenticated
   if (user) {
@@ -38,7 +39,7 @@ export default function Auth() {
     const password = formData.get('password') as string;
     const fullName = formData.get('fullName') as string;
     
-    await signUp(email, password, fullName);
+    await signUp(email, password, fullName, selectedRole);
     setIsLoading(false);
   };
 
@@ -135,6 +136,22 @@ export default function Auth() {
                       required
                       placeholder="Create a password"
                     />
+                  </div>
+                  <div>
+                    <Label htmlFor="signup-role">Role</Label>
+                    <Select
+                      value={selectedRole}
+                      onValueChange={(value: 'maker' | 'checker' | 'admin') => setSelectedRole(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="maker">Maker</SelectItem>
+                        <SelectItem value="checker">Checker</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Creating Account...' : 'Sign Up'}

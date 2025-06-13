@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +18,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string, role: 'maker' | 'checker' | 'admin') => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -110,34 +109,60 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, role: 'maker' | 'checker' | 'admin') => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { error: signUpError, data } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
+          role: role,
         },
       },
     });
 
-    if (error) {
+    if (signUpError) {
       toast({
         title: "Sign Up Failed",
-        description: error.message,
+        description: signUpError.message,
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Account Created",
-        description: "Please check your email to verify your account.",
-      });
+      return { error: signUpError };
     }
 
-    return { error };
+    // Create user profile
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .insert([
+          {
+            id: data.user.id,
+            email: email,
+            full_name: fullName,
+            role: role,
+            is_active: true,
+          },
+        ]);
+
+      if (profileError) {
+        toast({
+          title: "Profile Creation Failed",
+          description: profileError.message,
+          variant: "destructive",
+        });
+        return { error: profileError };
+      }
+    }
+
+    toast({
+      title: "Account Created",
+      description: "Please check your email to verify your account.",
+    });
+
+    return { error: null };
   };
 
   const signOut = async () => {
