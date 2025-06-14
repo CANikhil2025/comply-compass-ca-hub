@@ -1,194 +1,191 @@
 
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Users, 
   FileText, 
+  Calendar, 
   Clock, 
+  CheckCircle, 
   AlertTriangle,
   TrendingUp,
-  CheckCircle
+  Settings,
+  UserPlus,
+  Building
 } from 'lucide-react';
-import { useTasks } from '@/contexts/TasksContext';
+import { ClientManagement } from '@/components/admin/ClientManagement';
+import { ComplianceManagement } from '@/components/admin/ComplianceManagement';
+import { ClientAssignments } from '@/components/admin/ClientAssignments';
+import { TaskManagement } from '@/components/admin/TaskManagement';
 
 export const AdminDashboard = () => {
-  const { filteredTasks, activeFilter, setActiveFilter, getTaskStats } = useTasks();
-  const stats = getTaskStats();
+  const [activeView, setActiveView] = useState('dashboard');
 
-  const statCards = [
-    {
-      title: "Active Clients",
-      value: "24",
-      icon: Users,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
-      filter: "all"
-    },
-    {
-      title: "Tasks Due Today",
-      value: stats.dueToday.toString(),
-      icon: Clock,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-      filter: "due-today"
-    },
-    {
-      title: "Overdue Tasks",
-      value: stats.overdue.toString(),
-      icon: AlertTriangle,
-      color: "text-red-600",
-      bgColor: "bg-red-100",
-      filter: "overdue"
-    },
-    {
-      title: "Completed This Month",
-      value: stats.completed.toString(),
-      icon: CheckCircle,
-      color: "text-green-600",
-      bgColor: "bg-green-100",
-      filter: "completed"
+  // Dashboard statistics queries
+  const { data: stats } = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: async () => {
+      const [
+        { count: totalClients },
+        { count: activeUsers },
+        { count: totalTasks },
+        { count: overdueTasks },
+        { count: completedThisMonth }
+      ] = await Promise.all([
+        supabase.from('clients').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('user_profiles').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('tasks').select('*', { count: 'exact', head: true }),
+        supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('status', 'overdue'),
+        supabase.from('tasks').select('*', { count: 'exact', head: true })
+          .eq('status', 'done')
+          .gte('updated_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+      ]);
+      
+      return {
+        totalClients: totalClients || 0,
+        activeUsers: activeUsers || 0,
+        totalTasks: totalTasks || 0,
+        overdueTasks: overdueTasks || 0,
+        completedThisMonth: completedThisMonth || 0
+      };
     }
-  ];
+  });
 
-  const handleStatClick = (filter: string) => {
-    setActiveFilter(filter);
+  const { data: recentTasks = [] } = useQuery({
+    queryKey: ['recent-tasks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          clients(name),
+          maker:user_profiles!tasks_maker_id_fkey(full_name),
+          checker:user_profiles!tasks_checker_id_fkey(full_name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const { data: upcomingDeadlines = [] } = useQuery({
+    queryKey: ['upcoming-deadlines'],
+    queryFn: async () => {
+      const threeDaysFromNow = new Date();
+      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          clients(name),
+          compliance_categories(name)
+        `)
+        .lte('due_date', threeDaysFromNow.toISOString())
+        .in('status', ['pending', 'in_progress'])
+        .order('due_date')
+        .limit(10);
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  if (activeView !== 'dashboard') {
+    const viewComponents = {
+      clients: <ClientManagement />,
+      compliance: <ComplianceManagement />,
+      assignments: <ClientAssignments />,
+      tasks: <TaskManagement />
+    };
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={() => setActiveView('dashboard')}>
+            ← Back to Dashboard
+          </Button>
+        </div>
+        {viewComponents[activeView as keyof typeof viewComponents]}
+      </div>
+    );
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'outline';
+      case 'in_progress': return 'default';
+      case 'ready_for_review': return 'secondary';
+      case 'done': return 'default';
+      case 'overdue': return 'destructive';
+      default: return 'outline';
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <Badge variant="secondary" className="px-3 py-1">
-          Administrator
-        </Badge>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, index) => (
-          <Card 
-            key={index} 
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              activeFilter === stat.filter ? 'ring-2 ring-blue-500' : ''
-            }`}
-            onClick={() => handleStatClick(stat.filter)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <div className={`p-3 rounded-full ${stat.bgColor}`}>
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Filter Status */}
-      {activeFilter !== 'all' && (
-        <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <Badge variant="default">Active Filter</Badge>
-            <span className="text-sm text-gray-600">
-              Showing {filteredTasks.length} tasks for: {activeFilter.replace('-', ' ')}
-            </span>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setActiveFilter('all')}
-          >
-            Clear Filter
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => setActiveView('clients')}>
+            <Building className="h-4 w-4 mr-2" />
+            Manage Clients
+          </Button>
+          <Button variant="outline" onClick={() => setActiveView('compliance')}>
+            <Settings className="h-4 w-4 mr-2" />
+            Compliance Setup
           </Button>
         </div>
-      )}
+      </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Tasks */}
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <FileText className="h-5 w-5" />
-              <span>
-                {activeFilter === 'all' ? 'Recent Tasks' : `Filtered Tasks (${filteredTasks.length})`}
-              </span>
-            </CardTitle>
-            <CardDescription>
-              {activeFilter === 'all' 
-                ? 'Latest task activities' 
-                : `Tasks filtered by: ${activeFilter.replace('-', ' ')}`
-              }
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {filteredTasks.slice(0, 3).map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{task.client}</p>
-                    <p className="text-sm text-gray-600">{task.task}</p>
-                    <p className="text-xs text-gray-500">Assigned to: {task.assignee}</p>
-                    <p className="text-xs text-gray-500">Due: {task.dueDate}</p>
-                  </div>
-                  <div className="flex flex-col space-y-1">
-                    <Badge 
-                      variant={task.status === 'Overdue' ? 'destructive' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {task.status}
-                    </Badge>
-                    <Badge 
-                      variant={task.priority === 'High' ? 'destructive' : task.priority === 'Medium' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {task.priority}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              {filteredTasks.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No tasks found for the current filter
-                </div>
-              )}
-            </div>
+            <div className="text-2xl font-bold">{stats?.totalClients || 0}</div>
+            <p className="text-xs text-muted-foreground">Active clients</p>
           </CardContent>
         </Card>
 
-        {/* Performance Metrics */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5" />
-              <span>Performance Metrics</span>
-            </CardTitle>
-            <CardDescription>Team performance overview</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                { name: "John Doe (Maker)", completed: 45, hours: 120, efficiency: "95%" },
-                { name: "Jane Smith (Checker)", completed: 38, hours: 95, efficiency: "92%" },
-                { name: "Mike Johnson (Maker)", completed: 42, hours: 115, efficiency: "88%" }
-              ].map((person, index) => (
-                <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="font-medium text-gray-900">{person.name}</p>
-                    <Badge variant="outline">{person.efficiency}</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                    <div>Tasks: {person.completed}</div>
-                    <div>Hours: {person.hours}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div className="text-2xl font-bold">{stats?.activeUsers || 0}</div>
+            <p className="text-xs text-muted-foreground">Makers & Checkers</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalTasks || 0}</div>
+            <p className="text-xs text-muted-foreground">All time</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats?.overdueTasks || 0}</div>
+            <p className="text-xs text-muted-foreground">Need attention</p>
           </CardContent>
         </Card>
       </div>
@@ -196,49 +193,130 @@ export const AdminDashboard = () => {
       {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Quick Actions & Filters</CardTitle>
-          <CardDescription>Common administrative tasks and task filters</CardDescription>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common administrative tasks</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                "Add New Client",
-                "Create Task",
-                "View Reports",
-                "Manage Users"
-              ].map((action, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  className="p-4 h-auto text-left justify-start"
-                >
-                  {action}
-                </Button>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button variant="outline" onClick={() => setActiveView('clients')} className="h-20 flex flex-col">
+              <Building className="h-6 w-6 mb-2" />
+              Manage Clients
+            </Button>
+            <Button variant="outline" onClick={() => setActiveView('assignments')} className="h-20 flex flex-col">
+              <UserPlus className="h-6 w-6 mb-2" />
+              Client Assignments
+            </Button>
+            <Button variant="outline" onClick={() => setActiveView('tasks')} className="h-20 flex flex-col">
+              <Calendar className="h-6 w-6 mb-2" />
+              Task Management
+            </Button>
+            <Button variant="outline" onClick={() => setActiveView('compliance')} className="h-20 flex flex-col">
+              <Settings className="h-6 w-6 mb-2" />
+              Compliance Setup
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Tasks */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Clock className="h-5 w-5" />
+              <span>Recent Tasks</span>
+            </CardTitle>
+            <CardDescription>Latest task activities</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentTasks.map((task) => (
+                <div key={task.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{task.title}</p>
+                    <p className="text-sm text-gray-600">
+                      {task.clients?.name} • {task.maker?.full_name}
+                    </p>
+                  </div>
+                  <Badge variant={getStatusColor(task.status)}>
+                    {task.status.replace('_', ' ')}
+                  </Badge>
+                </div>
               ))}
+              {recentTasks.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  No recent tasks
+                </div>
+              )}
             </div>
-            
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Task Filters</h4>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: 'All Tasks', filter: 'all' },
-                  { label: 'Due Today', filter: 'due-today' },
-                  { label: 'Overdue', filter: 'overdue' },
-                  { label: 'In Progress', filter: 'in-progress' },
-                  { label: 'Pending Review', filter: 'ready-for-review' },
-                  { label: 'High Priority', filter: 'high-priority' }
-                ].map((item) => (
-                  <Button
-                    key={item.filter}
-                    variant={activeFilter === item.filter ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setActiveFilter(item.filter)}
-                  >
-                    {item.label}
-                  </Button>
-                ))}
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Deadlines */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5" />
+              <span>Upcoming Deadlines</span>
+            </CardTitle>
+            <CardDescription>Tasks due in the next 3 days</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {upcomingDeadlines.map((task) => (
+                <div key={task.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{task.title}</p>
+                    <p className="text-sm text-gray-600">
+                      {task.clients?.name} • {task.compliance_categories?.name}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium">
+                      {new Date(task.due_date).toLocaleDateString()}
+                    </div>
+                    <Badge variant={
+                      new Date(task.due_date) < new Date() ? 'destructive' : 'outline'
+                    }>
+                      {new Date(task.due_date) < new Date() ? 'Overdue' : 'Due Soon'}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+              {upcomingDeadlines.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  No upcoming deadlines
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Performance Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5" />
+            <span>This Month's Performance</span>
+          </CardTitle>
+          <CardDescription>Key metrics for the current month</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{stats?.completedThisMonth || 0}</div>
+              <div className="text-sm text-gray-600">Tasks Completed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {stats ? Math.round(((stats.completedThisMonth || 0) / (stats.totalTasks || 1)) * 100) : 0}%
               </div>
+              <div className="text-sm text-gray-600">Completion Rate</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats?.overdueTasks || 0}</div>
+              <div className="text-sm text-gray-600">Overdue Tasks</div>
             </div>
           </div>
         </CardContent>

@@ -1,273 +1,282 @@
+
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
-  FileCheck, 
   Clock, 
-  AlertCircle,
-  CheckCircle,
-  MessageSquare,
-  Eye
+  CheckCircle, 
+  AlertTriangle,
+  Eye,
+  FileText,
+  TrendingUp
 } from 'lucide-react';
-import { useTasks } from '@/contexts/TasksContext';
+import { ReviewWorkspace } from '@/components/checker/ReviewWorkspace';
 
 export const CheckerDashboard = () => {
-  const { filteredTasks, activeFilter, setActiveFilter, getTaskStats } = useTasks();
-  const stats = getTaskStats();
+  const { profile } = useAuth();
+  const [activeView, setActiveView] = useState('dashboard');
 
-  // Filter tasks that are ready for review
-  const tasksForReview = filteredTasks.filter(task => 
-    task.status === 'Ready for Review' || activeFilter === 'ready-for-review'
-  );
+  const { data: stats } = useQuery({
+    queryKey: ['checker-stats', profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return null;
+      
+      const [
+        { count: myTasks },
+        { count: pendingReview },
+        { count: approvedThisWeek },
+        { count: changesRequested }
+      ] = await Promise.all([
+        supabase.from('tasks').select('*', { count: 'exact', head: true })
+          .eq('checker_id', profile.id),
+        supabase.from('tasks').select('*', { count: 'exact', head: true })
+          .eq('checker_id', profile.id)
+          .eq('status', 'ready_for_review'),
+        supabase.from('tasks').select('*', { count: 'exact', head: true })
+          .eq('checker_id', profile.id)
+          .eq('status', 'approved')
+          .gte('updated_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase.from('task_comments').select('*', { count: 'exact', head: true })
+          .eq('user_id', profile.id)
+          .eq('comment_type', 'change_request')
+          .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      ]);
+      
+      return {
+        myTasks: myTasks || 0,
+        pendingReview: pendingReview || 0,
+        approvedThisWeek: approvedThisWeek || 0,
+        changesRequested: changesRequested || 0
+      };
+    },
+    enabled: !!profile?.id
+  });
 
-  const handleStatClick = (filter: string) => {
-    setActiveFilter(filter);
-  };
+  const { data: tasksForReview = [] } = useQuery({
+    queryKey: ['checker-tasks-preview', profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          clients(name),
+          compliance_categories(name),
+          compliance_forms(name),
+          maker:user_profiles!tasks_maker_id_fkey(full_name)
+        `)
+        .eq('checker_id', profile.id)
+        .eq('status', 'ready_for_review')
+        .order('end_date')
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.id
+  });
+
+  const { data: recentApprovals = [] } = useQuery({
+    queryKey: ['recent-approvals', profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          clients(name),
+          compliance_categories(name)
+        `)
+        .eq('checker_id', profile.id)
+        .eq('status', 'approved')
+        .order('updated_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.id
+  });
+
+  if (activeView === 'review') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={() => setActiveView('dashboard')}>
+            ← Back to Dashboard
+          </Button>
+        </div>
+        <ReviewWorkspace />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Review Dashboard</h1>
-        <Badge variant="secondary" className="px-3 py-1">
-          Checker
-        </Badge>
+        <h1 className="text-3xl font-bold text-gray-900">Checker Dashboard</h1>
+        <Button onClick={() => setActiveView('review')}>
+          <Eye className="h-4 w-4 mr-2" />
+          Review Workspace
+        </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card 
-          className={`cursor-pointer transition-all hover:shadow-md ${
-            activeFilter === 'ready-for-review' ? 'ring-2 ring-blue-500' : ''
-          }`}
-          onClick={() => handleStatClick('ready-for-review')}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.pendingReview}</p>
-              </div>
-              <FileCheck className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card 
-          className={`cursor-pointer transition-all hover:shadow-md ${
-            activeFilter === 'completed' ? 'ring-2 ring-blue-500' : ''
-          }`}
-          onClick={() => handleStatClick('completed')}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Approved Today</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.approved}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Change Requests</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.changeRequests}</p>
-              </div>
-              <AlertCircle className="h-8 w-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg Review Time</p>
-                <p className="text-3xl font-bold text-gray-900">2.5h</p>
-              </div>
-              <Clock className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filter Status */}
-      {activeFilter !== 'all' && (
-        <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <Badge variant="default">Active Filter</Badge>
-            <span className="text-sm text-gray-600">
-              Showing {filteredTasks.length} tasks for: {activeFilter.replace('-', ' ')}
-            </span>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setActiveFilter('all')}
-          >
-            Clear Filter
-          </Button>
-        </div>
-      )}
-
-      {/* Task Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Review Filters</CardTitle>
-          <CardDescription>Filter tasks by review status</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: 'All Tasks', filter: 'all' },
-              { label: 'Pending Review', filter: 'ready-for-review' },
-              { label: 'Completed', filter: 'completed' },
-              { label: 'High Priority', filter: 'high-priority' },
-              { label: 'Due Today', filter: 'due-today' },
-              { label: 'Overdue', filter: 'overdue' }
-            ].map((item) => (
-              <Button
-                key={item.filter}
-                variant={activeFilter === item.filter ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveFilter(item.filter)}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tasks Awaiting Review */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {activeFilter === 'all' ? 'Tasks Awaiting Review' : `Filtered Tasks (${filteredTasks.length})`}
-          </CardTitle>
-          <CardDescription>
-            {activeFilter === 'all' 
-              ? 'Submissions from makers ready for your review' 
-              : `Tasks filtered by: ${activeFilter.replace('-', ' ')}`
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {(activeFilter === 'all' ? tasksForReview : filteredTasks).map((task) => (
-              <div key={task.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{task.task}</h3>
-                    <p className="text-sm text-gray-600">{task.client}</p>
-                    {task.maker && (
-                      <p className="text-xs text-gray-500">Submitted by: {task.maker}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge 
-                      variant={task.priority === 'High' ? 'destructive' : task.priority === 'Medium' ? 'default' : 'secondary'}
-                    >
-                      {task.priority}
-                    </Badge>
-                    <Badge variant="outline">{task.status}</Badge>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    <p>Due: {task.dueDate}</p>
-                    {task.submittedAt && <p>Submitted: {task.submittedAt}</p>}
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="outline">
-                      <Eye className="h-4 w-4 mr-1" />
-                      Preview
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <MessageSquare className="h-4 w-4 mr-1" />
-                      Comment
-                    </Button>
-                    <Button size="sm" variant="destructive">
-                      Request Changes
-                    </Button>
-                    <Button size="sm">
-                      Approve
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {(activeFilter === 'all' ? tasksForReview : filteredTasks).length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No tasks found for the current filter
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Reviews */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Reviews</CardTitle>
-            <CardDescription>Your recently completed reviews</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">My Tasks</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[
-                { task: "PQR Inc - Income Tax", action: "Approved", time: "1 hour ago" },
-                { task: "MNO Corp - GST Return", action: "Changes Requested", time: "3 hours ago" },
-                { task: "RST Ltd - TDS Filing", action: "Approved", time: "5 hours ago" }
-              ].map((review, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{review.task}</p>
-                    <p className="text-sm text-gray-500">{review.time}</p>
-                  </div>
-                  <Badge 
-                    variant={review.action === 'Approved' ? 'default' : 'destructive'}
-                    className="text-xs"
-                  >
-                    {review.action}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+            <div className="text-2xl font-bold">{stats?.myTasks || 0}</div>
+            <p className="text-xs text-muted-foreground">Total assigned</p>
           </CardContent>
         </Card>
 
         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{stats?.pendingReview || 0}</div>
+            <p className="text-xs text-muted-foreground">Awaiting your review</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved This Week</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats?.approvedThisWeek || 0}</div>
+            <p className="text-xs text-muted-foreground">Tasks approved</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Changes Requested</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats?.changesRequested || 0}</div>
+            <p className="text-xs text-muted-foreground">This week</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tasks Awaiting Review */}
+        <Card>
           <CardHeader>
-            <CardTitle>Review Quality Metrics</CardTitle>
-            <CardDescription>Your review performance</CardDescription>
+            <CardTitle className="flex items-center space-x-2">
+              <Clock className="h-5 w-5" />
+              <span>Tasks Awaiting Review</span>
+            </CardTitle>
+            <CardDescription>Tasks submitted by makers</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Accuracy Rate</span>
-                <span className="font-bold text-green-600">98.5%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Avg Review Time</span>
-                <span className="font-bold">2.3 hours</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Reviews This Month</span>
-                <span className="font-bold">127</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Change Request Rate</span>
-                <span className="font-bold text-orange-600">12%</span>
-              </div>
+              {tasksForReview.map((task) => (
+                <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">{task.title}</p>
+                    <p className="text-sm text-gray-600">
+                      {task.clients?.name} • {task.maker?.full_name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Submitted: {new Date(task.end_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex flex-col space-y-1">
+                    <Badge variant="secondary">Ready for Review</Badge>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setActiveView('review')}
+                    >
+                      Review
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {tasksForReview.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  No tasks awaiting review
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Approvals */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <CheckCircle className="h-5 w-5" />
+              <span>Recent Approvals</span>
+            </CardTitle>
+            <CardDescription>Recently approved tasks</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentApprovals.map((task) => (
+                <div key={task.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{task.title}</p>
+                    <p className="text-sm text-gray-600">
+                      {task.clients?.name} • {task.compliance_categories?.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Approved: {new Date(task.updated_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge variant="default">Approved</Badge>
+                </div>
+              ))}
+              {recentApprovals.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  No recent approvals
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Performance Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5" />
+            <span>This Week's Performance</span>
+          </CardTitle>
+          <CardDescription>Your review activity this week</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{stats?.approvedThisWeek || 0}</div>
+              <div className="text-sm text-gray-600">Tasks Approved</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{stats?.changesRequested || 0}</div>
+              <div className="text-sm text-gray-600">Change Requests</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats?.pendingReview || 0}</div>
+              <div className="text-sm text-gray-600">Pending Review</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
