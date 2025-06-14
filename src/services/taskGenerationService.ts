@@ -53,13 +53,21 @@ export class TaskGenerationService {
 
       if (formsError) throw formsError;
 
-      // Get due date configurations
-      const { data: dueDates, error: dueDatesError } = await supabase
+      // Get due date configurations - fix the type by filtering valid frequencies
+      const { data: dueDatesRaw, error: dueDatesError } = await supabase
         .from('compliance_due_dates')
         .select('*')
         .in('category_id', categoryIds);
 
       if (dueDatesError) throw dueDatesError;
+
+      // Filter and map to correct frequency types
+      const dueDates: ComplianceDueDate[] = dueDatesRaw?.filter(dd => 
+        ['monthly', 'quarterly', 'annually'].includes(dd.frequency)
+      ).map(dd => ({
+        ...dd,
+        frequency: dd.frequency === 'yearly' ? 'annually' as const : dd.frequency as 'monthly' | 'quarterly' | 'annually'
+      })) || [];
 
       // Generate tasks for the next 3 months
       const tasks = [];

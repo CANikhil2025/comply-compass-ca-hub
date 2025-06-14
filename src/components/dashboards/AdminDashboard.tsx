@@ -1,10 +1,11 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, FileText, Calendar, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Users, FileText, Calendar, AlertTriangle, RefreshCw, Building } from 'lucide-react';
 import { ClientManagement } from '../admin/ClientManagement';
 import { ComplianceManagement } from '../admin/ComplianceManagement';
 import { ClientAssignments } from '../admin/ClientAssignments';
