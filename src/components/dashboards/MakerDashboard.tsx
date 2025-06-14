@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,34 +9,20 @@ import {
   Play,
   Pause
 } from 'lucide-react';
+import { useTasks } from '@/contexts/TasksContext';
 
 export const MakerDashboard = () => {
-  const myTasks = [
-    {
-      id: 1,
-      client: "ABC Corp",
-      task: "GSTR-3B Filing",
-      dueDate: "2024-01-15",
-      status: "In Progress",
-      priority: "High"
-    },
-    {
-      id: 2,
-      client: "XYZ Ltd",
-      task: "TDS Return Q3",
-      dueDate: "2024-01-18",
-      status: "Pending",
-      priority: "Medium"
-    },
-    {
-      id: 3,
-      client: "PQR Inc",
-      task: "Income Tax Return",
-      dueDate: "2024-01-20",
-      status: "In Progress",
-      priority: "Low"
-    }
-  ];
+  const { filteredTasks, activeFilter, setActiveFilter, getTaskStats } = useTasks();
+  const stats = getTaskStats();
+
+  // Filter tasks assigned to current user (mock - in real app, use auth context)
+  const myTasks = filteredTasks.filter(task => 
+    task.assignee === 'John Doe' || task.assignee === 'Jane Smith' || task.assignee === 'Mike Johnson'
+  );
+
+  const handleFilterClick = (filter: string) => {
+    setActiveFilter(filter);
+  };
 
   return (
     <div className="space-y-6">
@@ -50,12 +35,17 @@ export const MakerDashboard = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            activeFilter === 'pending' ? 'ring-2 ring-blue-500' : ''
+          }`}
+          onClick={() => handleFilterClick('pending')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Pending Tasks</p>
-                <p className="text-3xl font-bold text-gray-900">5</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.pendingTasks}</p>
               </div>
               <FileText className="h-8 w-8 text-blue-600" />
             </div>
@@ -74,12 +64,17 @@ export const MakerDashboard = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            activeFilter === 'due-today' ? 'ring-2 ring-blue-500' : ''
+          }`}
+          onClick={() => handleFilterClick('due-today')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Due Today</p>
-                <p className="text-3xl font-bold text-gray-900">2</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.dueToday}</p>
               </div>
               <Calendar className="h-8 w-8 text-orange-600" />
             </div>
@@ -87,11 +82,66 @@ export const MakerDashboard = () => {
         </Card>
       </div>
 
+      {/* Filter Status */}
+      {activeFilter !== 'all' && (
+        <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <Badge variant="default">Active Filter</Badge>
+            <span className="text-sm text-gray-600">
+              Showing {myTasks.length} tasks for: {activeFilter.replace('-', ' ')}
+            </span>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setActiveFilter('all')}
+          >
+            Clear Filter
+          </Button>
+        </div>
+      )}
+
+      {/* Task Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Task Filters</CardTitle>
+          <CardDescription>Filter your tasks by status and priority</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: 'All My Tasks', filter: 'all' },
+              { label: 'Pending', filter: 'pending' },
+              { label: 'In Progress', filter: 'in-progress' },
+              { label: 'Due Today', filter: 'due-today' },
+              { label: 'Overdue', filter: 'overdue' },
+              { label: 'High Priority', filter: 'high-priority' }
+            ].map((item) => (
+              <Button
+                key={item.filter}
+                variant={activeFilter === item.filter ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveFilter(item.filter)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Task List */}
       <Card>
         <CardHeader>
-          <CardTitle>My Assigned Tasks</CardTitle>
-          <CardDescription>Tasks assigned to you, sorted by due date</CardDescription>
+          <CardTitle>
+            {activeFilter === 'all' ? 'My Assigned Tasks' : `Filtered Tasks (${myTasks.length})`}
+          </CardTitle>
+          <CardDescription>
+            {activeFilter === 'all' 
+              ? 'Tasks assigned to you, sorted by due date' 
+              : `Tasks filtered by: ${activeFilter.replace('-', ' ')}`
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -108,7 +158,11 @@ export const MakerDashboard = () => {
                     >
                       {task.priority}
                     </Badge>
-                    <Badge variant="outline">{task.status}</Badge>
+                    <Badge 
+                      variant={task.status === 'Overdue' ? 'destructive' : 'outline'}
+                    >
+                      {task.status}
+                    </Badge>
                   </div>
                 </div>
                 
@@ -130,6 +184,11 @@ export const MakerDashboard = () => {
                 </div>
               </div>
             ))}
+            {myTasks.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No tasks found for the current filter
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

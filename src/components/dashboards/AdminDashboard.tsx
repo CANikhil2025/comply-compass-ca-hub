@@ -1,6 +1,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
   Users, 
   FileText, 
@@ -9,38 +10,50 @@ import {
   TrendingUp,
   CheckCircle
 } from 'lucide-react';
+import { useTasks } from '@/contexts/TasksContext';
 
 export const AdminDashboard = () => {
-  const stats = [
+  const { filteredTasks, activeFilter, setActiveFilter, getTaskStats } = useTasks();
+  const stats = getTaskStats();
+
+  const statCards = [
     {
       title: "Active Clients",
       value: "24",
       icon: Users,
       color: "text-blue-600",
-      bgColor: "bg-blue-100"
+      bgColor: "bg-blue-100",
+      filter: "all"
     },
     {
       title: "Tasks Due Today",
-      value: "8",
+      value: stats.dueToday.toString(),
       icon: Clock,
       color: "text-orange-600",
-      bgColor: "bg-orange-100"
+      bgColor: "bg-orange-100",
+      filter: "due-today"
     },
     {
       title: "Overdue Tasks",
-      value: "3",
+      value: stats.overdue.toString(),
       icon: AlertTriangle,
       color: "text-red-600",
-      bgColor: "bg-red-100"
+      bgColor: "bg-red-100",
+      filter: "overdue"
     },
     {
       title: "Completed This Month",
-      value: "156",
+      value: stats.completed.toString(),
       icon: CheckCircle,
       color: "text-green-600",
-      bgColor: "bg-green-100"
+      bgColor: "bg-green-100",
+      filter: "completed"
     }
   ];
+
+  const handleStatClick = (filter: string) => {
+    setActiveFilter(filter);
+  };
 
   return (
     <div className="space-y-6">
@@ -53,8 +66,14 @@ export const AdminDashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index}>
+        {statCards.map((stat, index) => (
+          <Card 
+            key={index} 
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeFilter === stat.filter ? 'ring-2 ring-blue-500' : ''
+            }`}
+            onClick={() => handleStatClick(stat.filter)}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -70,6 +89,25 @@ export const AdminDashboard = () => {
         ))}
       </div>
 
+      {/* Filter Status */}
+      {activeFilter !== 'all' && (
+        <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <Badge variant="default">Active Filter</Badge>
+            <span className="text-sm text-gray-600">
+              Showing {filteredTasks.length} tasks for: {activeFilter.replace('-', ' ')}
+            </span>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setActiveFilter('all')}
+          >
+            Clear Filter
+          </Button>
+        </div>
+      )}
+
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Tasks */}
@@ -77,31 +115,48 @@ export const AdminDashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <FileText className="h-5 w-5" />
-              <span>Recent Tasks</span>
+              <span>
+                {activeFilter === 'all' ? 'Recent Tasks' : `Filtered Tasks (${filteredTasks.length})`}
+              </span>
             </CardTitle>
-            <CardDescription>Latest task activities</CardDescription>
+            <CardDescription>
+              {activeFilter === 'all' 
+                ? 'Latest task activities' 
+                : `Tasks filtered by: ${activeFilter.replace('-', ' ')}`
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { client: "ABC Corp", task: "GSTR-3B Filing", status: "In Progress", assignee: "John Doe" },
-                { client: "XYZ Ltd", task: "TDS Return", status: "Ready for Review", assignee: "Jane Smith" },
-                { client: "PQR Inc", task: "ROC Filing", status: "Overdue", assignee: "Mike Johnson" }
-              ].map((task, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              {filteredTasks.slice(0, 3).map((task) => (
+                <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="font-medium text-gray-900">{task.client}</p>
                     <p className="text-sm text-gray-600">{task.task}</p>
                     <p className="text-xs text-gray-500">Assigned to: {task.assignee}</p>
+                    <p className="text-xs text-gray-500">Due: {task.dueDate}</p>
                   </div>
-                  <Badge 
-                    variant={task.status === 'Overdue' ? 'destructive' : 'secondary'}
-                    className="text-xs"
-                  >
-                    {task.status}
-                  </Badge>
+                  <div className="flex flex-col space-y-1">
+                    <Badge 
+                      variant={task.status === 'Overdue' ? 'destructive' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {task.status}
+                    </Badge>
+                    <Badge 
+                      variant={task.priority === 'High' ? 'destructive' : task.priority === 'Medium' ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {task.priority}
+                    </Badge>
+                  </div>
                 </div>
               ))}
+              {filteredTasks.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No tasks found for the current filter
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -141,24 +196,50 @@ export const AdminDashboard = () => {
       {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common administrative tasks</CardDescription>
+          <CardTitle>Quick Actions & Filters</CardTitle>
+          <CardDescription>Common administrative tasks and task filters</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              "Add New Client",
-              "Create Task",
-              "View Reports",
-              "Manage Users"
-            ].map((action, index) => (
-              <button
-                key={index}
-                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
-              >
-                <p className="font-medium text-gray-900">{action}</p>
-              </button>
-            ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                "Add New Client",
+                "Create Task",
+                "View Reports",
+                "Manage Users"
+              ].map((action, index) => (
+                <Button
+                  key={index}
+                  variant="outline"
+                  className="p-4 h-auto text-left justify-start"
+                >
+                  {action}
+                </Button>
+              ))}
+            </div>
+            
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Task Filters</h4>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: 'All Tasks', filter: 'all' },
+                  { label: 'Due Today', filter: 'due-today' },
+                  { label: 'Overdue', filter: 'overdue' },
+                  { label: 'In Progress', filter: 'in-progress' },
+                  { label: 'Pending Review', filter: 'ready-for-review' },
+                  { label: 'High Priority', filter: 'high-priority' }
+                ].map((item) => (
+                  <Button
+                    key={item.filter}
+                    variant={activeFilter === item.filter ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setActiveFilter(item.filter)}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

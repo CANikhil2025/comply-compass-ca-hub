@@ -4,6 +4,7 @@ import { AdminDashboard } from '@/components/dashboards/AdminDashboard';
 import { MakerDashboard } from '@/components/dashboards/MakerDashboard';
 import { CheckerDashboard } from '@/components/dashboards/CheckerDashboard';
 import { Navbar } from '@/components/Navbar';
+import { TasksProvider } from '@/contexts/TasksContext';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -30,11 +31,13 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {renderDashboard()}
-      </main>
-    </div>
+    <TasksProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          {renderDashboard()}
+        </main>
+      </div>
+    </TasksProvider>
   );
 }

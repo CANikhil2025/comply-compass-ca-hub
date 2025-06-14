@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,34 +9,20 @@ import {
   MessageSquare,
   Eye
 } from 'lucide-react';
+import { useTasks } from '@/contexts/TasksContext';
 
 export const CheckerDashboard = () => {
-  const tasksForReview = [
-    {
-      id: 1,
-      client: "ABC Corp",
-      task: "GSTR-3B Filing",
-      maker: "John Doe",
-      submittedAt: "2 hours ago",
-      priority: "High"
-    },
-    {
-      id: 2,
-      client: "XYZ Ltd",
-      task: "TDS Return Q3",
-      maker: "Jane Smith",
-      submittedAt: "4 hours ago",
-      priority: "Medium"
-    },
-    {
-      id: 3,
-      client: "DEF Corp",
-      task: "ROC Annual Filing",
-      maker: "Mike Johnson",
-      submittedAt: "1 day ago",
-      priority: "Low"
-    }
-  ];
+  const { filteredTasks, activeFilter, setActiveFilter, getTaskStats } = useTasks();
+  const stats = getTaskStats();
+
+  // Filter tasks that are ready for review
+  const tasksForReview = filteredTasks.filter(task => 
+    task.status === 'Ready for Review' || activeFilter === 'ready-for-review'
+  );
+
+  const handleStatClick = (filter: string) => {
+    setActiveFilter(filter);
+  };
 
   return (
     <div className="space-y-6">
@@ -50,24 +35,34 @@ export const CheckerDashboard = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            activeFilter === 'ready-for-review' ? 'ring-2 ring-blue-500' : ''
+          }`}
+          onClick={() => handleStatClick('ready-for-review')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                <p className="text-3xl font-bold text-gray-900">8</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.pendingReview}</p>
               </div>
               <FileCheck className="h-8 w-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card 
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            activeFilter === 'completed' ? 'ring-2 ring-blue-500' : ''
+          }`}
+          onClick={() => handleStatClick('completed')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Approved Today</p>
-                <p className="text-3xl font-bold text-gray-900">12</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.approved}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
@@ -79,7 +74,7 @@ export const CheckerDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Change Requests</p>
-                <p className="text-3xl font-bold text-gray-900">3</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.changeRequests}</p>
               </div>
               <AlertCircle className="h-8 w-8 text-red-600" />
             </div>
@@ -99,21 +94,78 @@ export const CheckerDashboard = () => {
         </Card>
       </div>
 
+      {/* Filter Status */}
+      {activeFilter !== 'all' && (
+        <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <Badge variant="default">Active Filter</Badge>
+            <span className="text-sm text-gray-600">
+              Showing {filteredTasks.length} tasks for: {activeFilter.replace('-', ' ')}
+            </span>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setActiveFilter('all')}
+          >
+            Clear Filter
+          </Button>
+        </div>
+      )}
+
+      {/* Task Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Review Filters</CardTitle>
+          <CardDescription>Filter tasks by review status</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: 'All Tasks', filter: 'all' },
+              { label: 'Pending Review', filter: 'ready-for-review' },
+              { label: 'Completed', filter: 'completed' },
+              { label: 'High Priority', filter: 'high-priority' },
+              { label: 'Due Today', filter: 'due-today' },
+              { label: 'Overdue', filter: 'overdue' }
+            ].map((item) => (
+              <Button
+                key={item.filter}
+                variant={activeFilter === item.filter ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveFilter(item.filter)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tasks Awaiting Review */}
       <Card>
         <CardHeader>
-          <CardTitle>Tasks Awaiting Review</CardTitle>
-          <CardDescription>Submissions from makers ready for your review</CardDescription>
+          <CardTitle>
+            {activeFilter === 'all' ? 'Tasks Awaiting Review' : `Filtered Tasks (${filteredTasks.length})`}
+          </CardTitle>
+          <CardDescription>
+            {activeFilter === 'all' 
+              ? 'Submissions from makers ready for your review' 
+              : `Tasks filtered by: ${activeFilter.replace('-', ' ')}`
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {tasksForReview.map((task) => (
+            {(activeFilter === 'all' ? tasksForReview : filteredTasks).map((task) => (
               <div key={task.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="font-semibold text-gray-900">{task.task}</h3>
                     <p className="text-sm text-gray-600">{task.client}</p>
-                    <p className="text-xs text-gray-500">Submitted by: {task.maker}</p>
+                    {task.maker && (
+                      <p className="text-xs text-gray-500">Submitted by: {task.maker}</p>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge 
@@ -121,12 +173,15 @@ export const CheckerDashboard = () => {
                     >
                       {task.priority}
                     </Badge>
-                    <Badge variant="outline">Ready for Review</Badge>
+                    <Badge variant="outline">{task.status}</Badge>
                   </div>
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-500">Submitted: {task.submittedAt}</p>
+                  <div className="text-sm text-gray-500">
+                    <p>Due: {task.dueDate}</p>
+                    {task.submittedAt && <p>Submitted: {task.submittedAt}</p>}
+                  </div>
                   <div className="flex space-x-2">
                     <Button size="sm" variant="outline">
                       <Eye className="h-4 w-4 mr-1" />
@@ -146,6 +201,11 @@ export const CheckerDashboard = () => {
                 </div>
               </div>
             ))}
+            {(activeFilter === 'all' ? tasksForReview : filteredTasks).length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No tasks found for the current filter
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
