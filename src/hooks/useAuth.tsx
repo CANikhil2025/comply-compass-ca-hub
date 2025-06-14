@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,20 +48,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
+          // Fetch user profile with a small delay to ensure trigger has run
           setTimeout(async () => {
-            const { data: profileData } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            
-            setProfile(profileData);
-          }, 0);
+            try {
+              const { data: profileData, error } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (error) {
+                console.error('Error fetching profile:', error);
+              } else {
+                console.log('Profile loaded:', profileData);
+                setProfile(profileData);
+              }
+            } catch (err) {
+              console.error('Profile fetch failed:', err);
+            }
+          }, 1000);
         } else {
           setProfile(null);
         }
@@ -112,6 +123,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signUp = async (email: string, password: string, fullName: string, role: 'maker' | 'checker' | 'admin') => {
     const redirectUrl = `${window.location.origin}/`;
     
+    console.log('Starting signup process...');
+    
     const { error: signUpError, data } = await supabase.auth.signUp({
       email,
       password,
@@ -125,6 +138,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     });
 
     if (signUpError) {
+      console.error('Signup error:', signUpError);
       toast({
         title: "Sign Up Failed",
         description: signUpError.message,
@@ -133,29 +147,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return { error: signUpError };
     }
 
-    // Create user profile
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert([
-          {
-            id: data.user.id,
-            email: email,
-            full_name: fullName,
-            role: role,
-            is_active: true,
-          },
-        ]);
-
-      if (profileError) {
-        toast({
-          title: "Profile Creation Failed",
-          description: profileError.message,
-          variant: "destructive",
-        });
-        return { error: profileError };
-      }
-    }
+    console.log('Signup successful, user:', data.user?.id);
 
     toast({
       title: "Account Created",
