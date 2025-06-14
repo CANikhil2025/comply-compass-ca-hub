@@ -1,30 +1,24 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Users, 
-  FileText, 
-  Calendar, 
-  Clock, 
-  CheckCircle, 
-  AlertTriangle,
-  TrendingUp,
-  Settings,
-  UserPlus,
-  Building
-} from 'lucide-react';
-import { ClientManagement } from '@/components/admin/ClientManagement';
-import { ComplianceManagement } from '@/components/admin/ComplianceManagement';
-import { ClientAssignments } from '@/components/admin/ClientAssignments';
-import { TaskManagement } from '@/components/admin/TaskManagement';
+import { Users, FileText, Calendar, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ClientManagement } from '../admin/ClientManagement';
+import { ComplianceManagement } from '../admin/ComplianceManagement';
+import { ClientAssignments } from '../admin/ClientAssignments';
+import { TaskManagement } from '../admin/TaskManagement';
+import { UpcomingTasksWidget } from '../tasks/UpcomingTasksWidget';
+import { TaskGenerationService } from '@/services/taskGenerationService';
+import { useToast } from '@/hooks/use-toast';
+
+type AdminView = 'dashboard' | 'clients' | 'compliance' | 'assignments' | 'tasks';
 
 export const AdminDashboard = () => {
-  const [activeView, setActiveView] = useState('dashboard');
+  const [currentView, setCurrentView] = useState<AdminView>('dashboard');
+  const [generatingTasks, setGeneratingTasks] = useState(false);
+  const { toast } = useToast();
 
   // Dashboard statistics queries
   const { data: stats } = useQuery({
@@ -96,55 +90,93 @@ export const AdminDashboard = () => {
     }
   });
 
-  if (activeView !== 'dashboard') {
-    const viewComponents = {
-      clients: <ClientManagement />,
-      compliance: <ComplianceManagement />,
-      assignments: <ClientAssignments />,
-      tasks: <TaskManagement />
-    };
-    
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => setActiveView('dashboard')}>
-            ← Back to Dashboard
-          </Button>
-        </div>
-        {viewComponents[activeView as keyof typeof viewComponents]}
-      </div>
-    );
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'outline';
-      case 'in_progress': return 'default';
-      case 'ready_for_review': return 'secondary';
-      case 'done': return 'default';
-      case 'overdue': return 'destructive';
-      default: return 'outline';
+  const handleGenerateTasks = async () => {
+    setGeneratingTasks(true);
+    try {
+      await TaskGenerationService.generateAllUpcomingTasks();
+      toast({
+        title: "Success",
+        description: "Tasks generated successfully for all clients",
+      });
+    } catch (error) {
+      console.error('Error generating tasks:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate tasks",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingTasks(false);
     }
   };
+
+  if (currentView === 'clients') {
+    return <ClientManagement />;
+  }
+
+  if (currentView === 'compliance') {
+    return <ComplianceManagement />;
+  }
+
+  if (currentView === 'assignments') {
+    return <ClientAssignments />;
+  }
+
+  if (currentView === 'tasks') {
+    return <TaskManagement />;
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => setActiveView('clients')}>
-            <Building className="h-4 w-4 mr-2" />
-            Manage Clients
-          </Button>
-          <Button variant="outline" onClick={() => setActiveView('compliance')}>
-            <Settings className="h-4 w-4 mr-2" />
-            Compliance Setup
-          </Button>
-        </div>
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <Button 
+          onClick={handleGenerateTasks}
+          disabled={generatingTasks}
+          className="flex items-center space-x-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${generatingTasks ? 'animate-spin' : ''}`} />
+          <span>{generatingTasks ? 'Generating...' : 'Generate Tasks'}</span>
+        </Button>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Navigation Buttons */}
+      <div className="flex space-x-2 flex-wrap">
+        <Button 
+          variant={currentView === 'dashboard' ? 'default' : 'outline'} 
+          onClick={() => setCurrentView('dashboard')}
+        >
+          Dashboard
+        </Button>
+        <Button 
+          variant={currentView === 'clients' ? 'default' : 'outline'} 
+          onClick={() => setCurrentView('clients')}
+        >
+          Clients
+        </Button>
+        <Button 
+          variant={currentView === 'compliance' ? 'default' : 'outline'} 
+          onClick={() => setCurrentView('compliance')}
+        >
+          Compliance
+        </Button>
+        <Button 
+          variant={currentView === 'assignments' ? 'default' : 'outline'} 
+          onClick={() => setCurrentView('assignments')}
+        >
+          Assignments
+        </Button>
+        <Button 
+          variant={currentView === 'tasks' ? 'default' : 'outline'} 
+          onClick={() => setCurrentView('tasks')}
+        >
+          Tasks
+        </Button>
+      </div>
+
+      {/* Dashboard Overview */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Statistics Cards */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
@@ -190,137 +222,22 @@ export const AdminDashboard = () => {
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common administrative tasks</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button variant="outline" onClick={() => setActiveView('clients')} className="h-20 flex flex-col">
-              <Building className="h-6 w-6 mb-2" />
-              Manage Clients
-            </Button>
-            <Button variant="outline" onClick={() => setActiveView('assignments')} className="h-20 flex flex-col">
-              <UserPlus className="h-6 w-6 mb-2" />
-              Client Assignments
-            </Button>
-            <Button variant="outline" onClick={() => setActiveView('tasks')} className="h-20 flex flex-col">
-              <Calendar className="h-6 w-6 mb-2" />
-              Task Management
-            </Button>
-            <Button variant="outline" onClick={() => setActiveView('compliance')} className="h-20 flex flex-col">
-              <Settings className="h-6 w-6 mb-2" />
-              Compliance Setup
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Tasks */}
+      {/* Upcoming Tasks Widget */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <UpcomingTasksWidget />
+        
+        {/* Recent Activity Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Clock className="h-5 w-5" />
-              <span>Recent Tasks</span>
-            </CardTitle>
-            <CardDescription>Latest task activities</CardDescription>
+            <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentTasks.map((task) => (
-                <div key={task.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{task.title}</p>
-                    <p className="text-sm text-gray-600">
-                      {task.clients?.name} • {task.maker?.full_name}
-                    </p>
-                  </div>
-                  <Badge variant={getStatusColor(task.status)}>
-                    {task.status.replace('_', ' ')}
-                  </Badge>
-                </div>
-              ))}
-              {recentTasks.length === 0 && (
-                <div className="text-center py-4 text-gray-500">
-                  No recent tasks
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Deadlines */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <AlertTriangle className="h-5 w-5" />
-              <span>Upcoming Deadlines</span>
-            </CardTitle>
-            <CardDescription>Tasks due in the next 3 days</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {upcomingDeadlines.map((task) => (
-                <div key={task.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{task.title}</p>
-                    <p className="text-sm text-gray-600">
-                      {task.clients?.name} • {task.compliance_categories?.name}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium">
-                      {new Date(task.due_date).toLocaleDateString()}
-                    </div>
-                    <Badge variant={
-                      new Date(task.due_date) < new Date() ? 'destructive' : 'outline'
-                    }>
-                      {new Date(task.due_date) < new Date() ? 'Overdue' : 'Due Soon'}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              {upcomingDeadlines.length === 0 && (
-                <div className="text-center py-4 text-gray-500">
-                  No upcoming deadlines
-                </div>
-              )}
+            <div className="text-center text-gray-500 py-4">
+              Recent activity will be displayed here
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Performance Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <TrendingUp className="h-5 w-5" />
-            <span>This Month's Performance</span>
-          </CardTitle>
-          <CardDescription>Key metrics for the current month</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{stats?.completedThisMonth || 0}</div>
-              <div className="text-sm text-gray-600">Tasks Completed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {stats ? Math.round(((stats.completedThisMonth || 0) / (stats.totalTasks || 1)) * 100) : 0}%
-              </div>
-              <div className="text-sm text-gray-600">Completion Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{stats?.overdueTasks || 0}</div>
-              <div className="text-sm text-gray-600">Overdue Tasks</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

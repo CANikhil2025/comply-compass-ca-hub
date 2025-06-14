@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +13,8 @@ import {
   FileText,
   TrendingUp
 } from 'lucide-react';
-import { ReviewWorkspace } from '@/components/checker/ReviewWorkspace';
+import { ReviewWorkspace } from '../checker/ReviewWorkspace';
+import { UpcomingTasksWidget } from '../tasks/UpcomingTasksWidget';
 
 export const CheckerDashboard = () => {
   const { profile } = useAuth();
@@ -117,16 +117,10 @@ export const CheckerDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Checker Dashboard</h1>
-        <Button onClick={() => setActiveView('review')}>
-          <Eye className="h-4 w-4 mr-2" />
-          Review Workspace
-        </Button>
-      </div>
-
+      <h1 className="text-3xl font-bold">Checker Dashboard</h1>
+      
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">My Tasks</CardTitle>
@@ -172,111 +166,22 @@ export const CheckerDashboard = () => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Tasks Awaiting Review */}
+      {/* Main Content */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Upcoming Tasks */}
+        <UpcomingTasksWidget />
+        
+        {/* Review Workspace */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Clock className="h-5 w-5" />
-              <span>Tasks Awaiting Review</span>
-            </CardTitle>
-            <CardDescription>Tasks submitted by makers</CardDescription>
+            <CardTitle>Review Queue</CardTitle>
+            <CardDescription>Tasks awaiting your review</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {tasksForReview.map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{task.title}</p>
-                    <p className="text-sm text-gray-600">
-                      {task.clients?.name} • {task.maker?.full_name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Submitted: {new Date(task.end_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex flex-col space-y-1">
-                    <Badge variant="secondary">Ready for Review</Badge>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => setActiveView('review')}
-                    >
-                      Review
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              {tasksForReview.length === 0 && (
-                <div className="text-center py-4 text-gray-500">
-                  No tasks awaiting review
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Approvals */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5" />
-              <span>Recent Approvals</span>
-            </CardTitle>
-            <CardDescription>Recently approved tasks</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentApprovals.map((task) => (
-                <div key={task.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{task.title}</p>
-                    <p className="text-sm text-gray-600">
-                      {task.clients?.name} • {task.compliance_categories?.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Approved: {new Date(task.updated_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Badge variant="default">Approved</Badge>
-                </div>
-              ))}
-              {recentApprovals.length === 0 && (
-                <div className="text-center py-4 text-gray-500">
-                  No recent approvals
-                </div>
-              )}
-            </div>
+            <ReviewWorkspace />
           </CardContent>
         </Card>
       </div>
-
-      {/* Performance Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <TrendingUp className="h-5 w-5" />
-            <span>This Week's Performance</span>
-          </CardTitle>
-          <CardDescription>Your review activity this week</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{stats?.approvedThisWeek || 0}</div>
-              <div className="text-sm text-gray-600">Tasks Approved</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats?.changesRequested || 0}</div>
-              <div className="text-sm text-gray-600">Change Requests</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{stats?.pendingReview || 0}</div>
-              <div className="text-sm text-gray-600">Pending Review</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
